@@ -1,113 +1,206 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { useState } from "react";
 
 export default function Home() {
+  type SentimentResult = {
+    sentiment: string;
+    input: string;
+  };
+
+  type CategoryResult = {
+    category: string;
+    subcategory: string;
+    title: string;
+    description: string;
+  };
+
+  type ErrorResult = {
+    error: string;
+  };
+
+  type ResultType = SentimentResult | CategoryResult | ErrorResult;
+
+  const [sentimentResults, setSentimentResults] = useState<ResultType[]>([]);
+  const [categoryResults, setCategoryResults] = useState<ResultType[]>([]);
+  const [activeTab, setActiveTab] = useState<"sentiment" | "category">(
+    "sentiment",
+  );
+  const [form, setForm] = useState({ review: "", title: "", description: "" });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const endpoint =
+      activeTab === "sentiment" ? "/predict/sentiment" : "/predict/category";
+
+    const payload =
+      activeTab === "sentiment"
+        ? { text: form.review }
+        : {
+            product_title: form.title,
+            product_description: form.description,
+          };
+
+    try {
+      const res = await fetch(`http://localhost:8000${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (activeTab === "sentiment") {
+        setSentimentResults((prev) => [
+          { ...data, input: form.review },
+          ...prev,
+        ]);
+        setForm({ ...form, review: "" }); // Clear review
+      } else {
+        setCategoryResults((prev) => [
+          {
+            ...data,
+            title: form.title,
+            description: form.description,
+          },
+          ...prev,
+        ]);
+        setForm({ ...form, title: "", description: "" }); // Clear title & desc
+      }
+    } catch (err) {
+      const errorResult = { error: "Failed to fetch response." };
+      if (activeTab === "sentiment") {
+        setSentimentResults((prev) => [errorResult, ...prev]);
+      } else {
+        setCategoryResults((prev) => [errorResult, ...prev]);
+      }
+    }
+
+    setLoading(false);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/pages/index.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+    <div className="min-h-screen bg-black text-white px-6 py-12">
+      <h1 className="text-4xl font-bold text-center mb-10">IS450 Demo - API</h1>
+
+      <div className="flex justify-center mb-6">
+        <button
+          className={`px-4 py-2 rounded-l-full transition-colors duration-200 ${
+            activeTab === "sentiment" ? "bg-white text-black" : "bg-gray-800"
+          }`}
+          onClick={() => setActiveTab("sentiment")}
+        >
+          Sentiment
+        </button>
+        <button
+          className={`px-4 py-2 rounded-r-full transition-colors duration-200 ${
+            activeTab === "category" ? "bg-white text-black" : "bg-gray-800"
+          }`}
+          onClick={() => setActiveTab("category")}
+        >
+          Category
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4 max-w-xl mx-auto">
+        {activeTab === "sentiment" ? (
+          <textarea
+            rows={4}
+            className="w-full p-4 rounded bg-gray-900 text-white placeholder-gray-400"
+            placeholder="Enter review text..."
+            value={form.review}
+            onChange={(e) => setForm({ ...form, review: e.target.value })}
+            required
+          />
+        ) : (
+          <>
+            <input
+              className="w-full p-4 rounded bg-gray-900 text-white placeholder-gray-400"
+              placeholder="Product Title"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              required
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+            <textarea
+              rows={3}
+              className="w-full p-4 rounded bg-gray-900 text-white placeholder-gray-400"
+              placeholder="Product Description"
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
+              required
+            />
+          </>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-3 rounded bg-white text-black font-semibold hover:bg-gray-200 transition"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          {loading ? "Loading..." : "Submit"}
+        </button>
+      </form>
+      <div className="mt-12 space-y-6 max-w-xl mx-auto">
+        {(activeTab === "sentiment" ? sentimentResults : categoryResults).map(
+          (r, idx) => (
+            <div
+              key={idx}
+              className="bg-gray-900 p-4 rounded text-sm border border-gray-700"
+            >
+              {"error" in r && <p className="text-red-400">{r.error}</p>}
+
+              {"sentiment" in r && (
+                <>
+                  <p>
+                    <strong>Input:</strong> {(r as SentimentResult).input}
+                  </p>
+                  <p>
+                    <strong>Sentiment:</strong>{" "}
+                    <span
+                      className={
+                        r.sentiment === "Positive"
+                          ? "text-green-400"
+                          : r.sentiment === "Negative"
+                            ? "text-red-400"
+                            : "text-white"
+                      }
+                    >
+                      {r.sentiment}
+                    </span>
+                  </p>
+                </>
+              )}
+
+              {"category" in r && "subcategory" in r && (
+                <>
+                  <p>
+                    <strong>Title:</strong> {(r as CategoryResult).title}
+                  </p>
+                  <p>
+                    <strong>Description:</strong>{" "}
+                    {(r as CategoryResult).description}
+                  </p>
+
+                  <hr className="my-3 border-gray-700" />
+
+                  <p>
+                    <strong>Category:</strong>{" "}
+                    <span className="mr-2 inline-block px-3 py-1 bg-gray-800 text-white rounded-full text-xs font-medium border border-gray-600">
+                      {r.category}
+                    </span>
+                    <strong>Subcategory:</strong>{" "}
+                    <span className="inline-block px-3 py-1 bg-gray-800 text-white rounded-full text-xs font-medium border border-gray-600">
+                      {r.subcategory}
+                    </span>
+                  </p>
+                </>
+              )}
+            </div>
+          ),
+        )}
+      </div>
     </div>
   );
 }
