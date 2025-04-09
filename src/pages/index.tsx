@@ -43,11 +43,14 @@ export default function Home() {
           };
 
     try {
-      const res = await fetch(`http://localhost:8000${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `https://is450-sentiment-analysis-392732146202.asia-southeast1.run.app${endpoint}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const data = await res.json();
 
       if (activeTab === "sentiment") {
